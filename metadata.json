@@ -1,0 +1,8 @@
+{
+  "name": "TikTok Viral Strategist 2026",
+  "description": "Expert AI strategist for TikTok creators, optimizing for maximum virality using the 2026 algorithm logic.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
