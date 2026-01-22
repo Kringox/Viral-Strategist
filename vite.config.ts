@@ -5,8 +5,8 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   define: {
-    // Stellt sicher, dass process.env auch im Browser-Bundle (via Vite) verfügbar ist
-    'process.env': process.env
+    // Wir definieren nur den spezifischen API_KEY, um Fehler beim Bündeln zu vermeiden
+    'process.env.API_KEY': JSON.stringify(process.env.API_KEY)
   },
   build: {
     outDir: 'dist',

@@ -100,9 +100,10 @@ const App: React.FC = () => {
         });
       }
       const data = await gemini.analyzeVideo(niche, region, goal, mood, videoBase64);
-      setResult(data || '');
-    } catch (err) {
-      setResult('Analyse fehlgeschlagen.');
+      setResult(data || 'Keine Daten empfangen.');
+    } catch (err: any) {
+      console.error(err);
+      setResult(`Fehler: ${err?.message || 'API-Verbindung fehlgeschlagen.'}`);
     } finally {
       setLoading(false);
     }
@@ -115,9 +116,10 @@ const App: React.FC = () => {
     setSelectedIdeaIndex(0);
     try {
       const data = await gemini.generateIdeas(category, niche, region, goal, mood);
-      setResult(data || '');
-    } catch (err) {
-      setResult('Generierung fehlgeschlagen.');
+      setResult(data || 'Keine Ideen generiert.');
+    } catch (err: any) {
+      console.error(err);
+      setResult(`Fehler: ${err?.message || 'Ideen-Generierung fehlgeschlagen.'}`);
     } finally {
       setLoading(false);
     }
@@ -129,9 +131,10 @@ const App: React.FC = () => {
     setResult(null);
     try {
       const data = await gemini.generateHashtags(hashtagTopic, hashtagVisuals, niche, goal, mood, region);
-      setResult(data || '');
-    } catch (err) {
-      setResult('Tags fehlgeschlagen.');
+      setResult(data || 'Keine Tags gefunden.');
+    } catch (err: any) {
+      console.error(err);
+      setResult(`Fehler: ${err?.message || 'Hashtag-Generierung fehlgeschlagen.'}`);
     } finally {
       setLoading(false);
     }
@@ -189,6 +192,7 @@ const App: React.FC = () => {
   };
 
   const parseScanResult = (text: string) => {
+    if (text.startsWith('Fehler:')) return null;
     return {
       code: getField(text, 'VIRAL-CODE'),
       score: getField(text, 'SCORE').replace('%', ''),
@@ -201,6 +205,7 @@ const App: React.FC = () => {
   };
 
   const parseIdeas = (text: string) => {
+    if (text.startsWith('Fehler:')) return [];
     const blocks = text.split(/## IDEA \d/i).filter(b => b.trim().length > 10);
     return blocks.map(block => ({
       code: getField(block, 'VIRAL-CODE'),
@@ -326,92 +331,121 @@ const App: React.FC = () => {
 
           {result && !loading && (
             <div className="space-y-6 animate-in slide-in-from-bottom-8 duration-700 pb-20">
-              {activeTab === FlowType.ANALYSIS && scanData && (
-                <>
-                  <div className="flex gap-3">
-                    <div className="flex-1 glass-panel rounded-[2rem] p-6 border-t-2 border-[#FE2C55]">
-                      <p className="text-[10px] font-black text-[#FE2C55] uppercase tracking-widest mb-1">Viral Score</p>
-                      <p className="text-5xl font-[1000] tracking-tighter text-white tabular-nums">{scanData.score}%</p>
-                    </div>
-                    <div className="flex-1 glass-panel rounded-[2rem] p-6 border-t-2 border-[#25F4EE] flex flex-col justify-center">
-                      <div className="flex items-center gap-2 text-[#25F4EE] mb-1">
-                        <Clock className="w-4 h-4" />
-                        <span className="text-xl font-black tabular-nums">{scanData.time}</span>
+              {activeTab === FlowType.ANALYSIS && (
+                scanData ? (
+                  <>
+                    <div className="flex gap-3">
+                      <div className="flex-1 glass-panel rounded-[2rem] p-6 border-t-2 border-[#FE2C55]">
+                        <p className="text-[10px] font-black text-[#FE2C55] uppercase tracking-widest mb-1">Viral Score</p>
+                        <p className="text-5xl font-[1000] tracking-tighter text-white tabular-nums">{scanData.score}%</p>
                       </div>
-                      <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Post-Zeit</p>
+                      <div className="flex-1 glass-panel rounded-[2rem] p-6 border-t-2 border-[#25F4EE] flex flex-col justify-center">
+                        <div className="flex items-center gap-2 text-[#25F4EE] mb-1">
+                          <Clock className="w-4 h-4" />
+                          <span className="text-xl font-black tabular-nums">{scanData.time}</span>
+                        </div>
+                        <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Post-Zeit</p>
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="space-y-3">
-                    <CopyBubble label="Viral Code" content={scanData.code} icon={<Terminal className="w-3.5 h-3.5" />} id="s-code" onCopy={handleCopy} copiedId={copiedId} highlight />
-                    <CopyBubble label="Inhalt des Videos" content={scanData.inhalt} icon={<Video className="w-3.5 h-3.5" />} id="s-content" onCopy={handleCopy} copiedId={copiedId} />
-                    <CopyBubble label="Textvorschlag Video" content={scanData.videoText} icon={<FontIcon className="w-3.5 h-3.5" />} id="s-v-text" onCopy={handleCopy} copiedId={copiedId} />
-                    <CopyBubble label="Caption" content={scanData.caption} icon={<AlignLeft className="w-3.5 h-3.5" />} id="s-caption" onCopy={handleCopy} copiedId={copiedId} />
-                    <CopyBubble label="Hashtags" content={scanData.hashtags} icon={<Hash className="w-3.5 h-3.5" />} id="s-tags" onCopy={handleCopy} copiedId={copiedId} />
+                    <div className="space-y-3">
+                      <CopyBubble label="Viral Code" content={scanData.code} icon={<Terminal className="w-3.5 h-3.5" />} id="s-code" onCopy={handleCopy} copiedId={copiedId} highlight />
+                      <CopyBubble label="Inhalt des Videos" content={scanData.inhalt} icon={<Video className="w-3.5 h-3.5" />} id="s-content" onCopy={handleCopy} copiedId={copiedId} />
+                      <CopyBubble label="Textvorschlag Video" content={scanData.videoText} icon={<FontIcon className="w-3.5 h-3.5" />} id="s-v-text" onCopy={handleCopy} copiedId={copiedId} />
+                      <CopyBubble label="Caption" content={scanData.caption} icon={<AlignLeft className="w-3.5 h-3.5" />} id="s-caption" onCopy={handleCopy} copiedId={copiedId} />
+                      <CopyBubble label="Hashtags" content={scanData.hashtags} icon={<Hash className="w-3.5 h-3.5" />} id="s-tags" onCopy={handleCopy} copiedId={copiedId} />
+                    </div>
+                  </>
+                ) : (
+                  <div className="glass-panel p-8 rounded-3xl border-red-500/20 text-center">
+                    <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-3" />
+                    <p className="text-sm font-bold text-red-400">{result}</p>
+                    <p className="text-[10px] text-white/20 mt-2">Prüfe deinen API_KEY in den Vercel Settings.</p>
                   </div>
-                </>
+                )
               )}
 
-              {activeTab === FlowType.IDEAS && ideas.length > 0 && (
-                <>
-                  <div className="flex p-1.5 glass-panel rounded-full overflow-hidden mb-4 border-white/5">
-                    {ideas.map((_, i) => (
-                      <button 
-                        key={i} 
-                        onClick={() => setSelectedIdeaIndex(i)} 
-                        className={`flex-1 py-3 text-[10px] font-[1000] uppercase tracking-widest transition-all rounded-full ${selectedIdeaIndex === i ? 'bg-white text-black shadow-xl' : 'text-white/40 hover:text-white'}`}
-                      >
-                        Idee {i + 1}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="flex gap-3">
-                    <div className="flex-1 glass-panel rounded-[2rem] p-6 border-t-2 border-[#25F4EE]">
-                      <p className="text-[10px] font-black text-[#25F4EE] uppercase tracking-widest mb-1">Potenzial</p>
-                      <p className="text-5xl font-[1000] tracking-tighter text-white tabular-nums">{ideas[selectedIdeaIndex].score}%</p>
+              {activeTab === FlowType.IDEAS && (
+                ideas.length > 0 ? (
+                  <>
+                    <div className="flex p-1.5 glass-panel rounded-full overflow-hidden mb-4 border-white/5">
+                      {ideas.map((_, i) => (
+                        <button 
+                          key={i} 
+                          onClick={() => setSelectedIdeaIndex(i)} 
+                          className={`flex-1 py-3 text-[10px] font-[1000] uppercase tracking-widest transition-all rounded-full ${selectedIdeaIndex === i ? 'bg-white text-black shadow-xl' : 'text-white/40 hover:text-white'}`}
+                        >
+                          Idee {i + 1}
+                        </button>
+                      ))}
                     </div>
-                    <div className="flex-1 glass-panel rounded-[2rem] p-6 border-t-2 border-[#FE2C55] flex flex-col justify-center">
-                      <div className="flex items-center gap-2 text-[#FE2C55] mb-1">
-                        <Clock className="w-4 h-4" />
-                        <span className="text-xl font-black tabular-nums">{ideas[selectedIdeaIndex].time}</span>
+
+                    <div className="flex gap-3">
+                      <div className="flex-1 glass-panel rounded-[2rem] p-6 border-t-2 border-[#25F4EE]">
+                        <p className="text-[10px] font-black text-[#25F4EE] uppercase tracking-widest mb-1">Potenzial</p>
+                        <p className="text-5xl font-[1000] tracking-tighter text-white tabular-nums">{ideas[selectedIdeaIndex].score}%</p>
                       </div>
-                      <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Startzeit</p>
+                      <div className="flex-1 glass-panel rounded-[2rem] p-6 border-t-2 border-[#FE2C55] flex flex-col justify-center">
+                        <div className="flex items-center gap-2 text-[#FE2C55] mb-1">
+                          <Clock className="w-4 h-4" />
+                          <span className="text-xl font-black tabular-nums">{ideas[selectedIdeaIndex].time}</span>
+                        </div>
+                        <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Startzeit</p>
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="space-y-3">
-                    <CopyBubble label="Idea Viral Code" content={ideas[selectedIdeaIndex].code} icon={<Terminal className="w-3.5 h-3.5" />} id="i-code" onCopy={handleCopy} copiedId={copiedId} highlight />
-                    <CopyBubble label="Textvorschlag In-Video" content={ideas[selectedIdeaIndex].videoText} icon={<FontIcon className="w-3.5 h-3.5" />} id="i-v-text" onCopy={handleCopy} copiedId={copiedId} />
-                    <CopyBubble label="Captions" content={ideas[selectedIdeaIndex].caption} icon={<AlignLeft className="w-3.5 h-3.5" />} id="i-caption" onCopy={handleCopy} copiedId={copiedId} />
-                    <CopyBubble label="Hashtags" content={ideas[selectedIdeaIndex].hashtags} icon={<Hash className="w-3.5 h-3.5" />} id="i-tags" onCopy={handleCopy} copiedId={copiedId} />
+                    <div className="space-y-3">
+                      <CopyBubble label="Idea Viral Code" content={ideas[selectedIdeaIndex].code} icon={<Terminal className="w-3.5 h-3.5" />} id="i-code" onCopy={handleCopy} copiedId={copiedId} highlight />
+                      <CopyBubble label="Textvorschlag In-Video" content={ideas[selectedIdeaIndex].videoText} icon={<FontIcon className="w-3.5 h-3.5" />} id="i-v-text" onCopy={handleCopy} copiedId={copiedId} />
+                      <CopyBubble label="Captions" content={ideas[selectedIdeaIndex].caption} icon={<AlignLeft className="w-3.5 h-3.5" />} id="i-caption" onCopy={handleCopy} copiedId={copiedId} />
+                      <CopyBubble label="Hashtags" content={ideas[selectedIdeaIndex].hashtags} icon={<Hash className="w-3.5 h-3.5" />} id="i-tags" onCopy={handleCopy} copiedId={copiedId} />
+                    </div>
+                  </>
+                ) : (
+                  <div className="glass-panel p-8 rounded-3xl border-red-500/20 text-center">
+                    <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-3" />
+                    <p className="text-sm font-bold text-red-400">{result}</p>
                   </div>
-                </>
+                )
               )}
 
-              {activeTab === FlowType.HASHTAGS && result && (
+              {activeTab === FlowType.HASHTAGS && (
                 <div className="glass-panel rounded-[2rem] p-8 border border-[#25F4EE]/10">
                   <div className="flex items-center gap-2 mb-6">
                     <Hash className="w-4 h-4 text-[#25F4EE]" />
                     <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Booster Tag Matrix</p>
                   </div>
                   <div className="grid grid-cols-1 gap-3">
-                    {result.split('\n').filter(l => l.includes('📋')).map((line, i) => {
-                      const tag = line.match(/#\w+/)?.[0] || '';
-                      if (!tag) return null;
-                      return (
-                        <button 
-                          key={i} 
-                          onClick={() => handleCopy(tag, `ht-${i}`)}
-                          className={`flex items-center justify-between p-4 rounded-2xl transition-all border border-white/5 ${copiedId === `ht-${i}` ? 'bg-green-500/20 border-green-500/50' : 'bg-white/5 hover:bg-white/10'}`}
-                        >
-                          <span className="text-lg font-black tracking-tight">{tag}</span>
-                          <div className={`p-2 rounded-lg ${copiedId === `ht-${i}` ? 'bg-green-500 text-white' : 'bg-white/10 text-white/30'}`}>
-                            {copiedId === `ht-${i}` ? <CheckCircle2 className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                          </div>
-                        </button>
-                      )
-                    })}
+                    {result?.startsWith('Fehler:') ? (
+                      <p className="text-red-400 text-xs text-center font-bold">{result}</p>
+                    ) : (
+                      (() => {
+                        const tags = result?.match(/#[\w\d]+/g) || [];
+                        if (tags.length === 0 && result) {
+                          // Debug-Anzeige, falls die KI Text schickt, aber keine Hashtags erkennt
+                          return (
+                            <div className="space-y-4">
+                              <p className="text-white/40 text-[10px] text-center italic">Keine Hashtags erkannt. Roh-Antwort:</p>
+                              <p className="text-[12px] text-white/60 bg-white/5 p-4 rounded-xl">{result}</p>
+                            </div>
+                          );
+                        }
+                        if (!result) return <p className="text-white/20 text-[10px] text-center italic">Warte auf Matrix-Stream...</p>;
+                        
+                        return tags.map((tag, i) => (
+                          <button 
+                            key={i} 
+                            onClick={() => handleCopy(tag, `ht-${i}`)}
+                            className={`flex items-center justify-between p-4 rounded-2xl transition-all border border-white/5 ${copiedId === `ht-${i}` ? 'bg-green-500/20 border-green-500/50' : 'bg-white/5 hover:bg-white/10'}`}
+                          >
+                            <span className="text-lg font-black tracking-tight">{tag}</span>
+                            <div className={`p-2 rounded-lg ${copiedId === `ht-${i}` ? 'bg-green-500 text-white' : 'bg-white/10 text-white/30'}`}>
+                              {copiedId === `ht-${i}` ? <CheckCircle2 className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                            </div>
+                          </button>
+                        ));
+                      })()
+                    )}
                   </div>
                 </div>
               )}
