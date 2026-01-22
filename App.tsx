@@ -80,6 +80,14 @@ const App: React.FC = () => {
   const [hashtagTopic, setHashtagTopic] = useState('');
   const [hashtagVisuals, setHashtagVisuals] = useState('');
 
+  const formatErrorMessage = (err: any) => {
+    const msg = err?.message || String(err);
+    if (msg.includes('429') || msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED')) {
+      return "KI-LIMIT ERREICHT: Dein Gratis-Limit von Google ist für heute oder diese Minute aufgebraucht. Bitte 1-2 Minuten warten oder einen anderen Key nutzen.";
+    }
+    return `FEHLER: ${msg}`;
+  };
+
   const handleCopy = (text: string, id: string) => {
     const cleanText = text.replace(/📋 /g, '').replace(/\[|\]/g, '').replace(/\*/g, '').trim();
     navigator.clipboard.writeText(cleanText);
@@ -102,8 +110,7 @@ const App: React.FC = () => {
       const data = await gemini.analyzeVideo(niche, region, goal, mood, videoBase64);
       setResult(data || 'Keine Daten empfangen.');
     } catch (err: any) {
-      console.error(err);
-      setResult(`Fehler: ${err?.message || 'API-Verbindung fehlgeschlagen.'}`);
+      setResult(formatErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -118,8 +125,7 @@ const App: React.FC = () => {
       const data = await gemini.generateIdeas(category, niche, region, goal, mood);
       setResult(data || 'Keine Ideen generiert.');
     } catch (err: any) {
-      console.error(err);
-      setResult(`Fehler: ${err?.message || 'Ideen-Generierung fehlgeschlagen.'}`);
+      setResult(formatErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -133,8 +139,7 @@ const App: React.FC = () => {
       const data = await gemini.generateHashtags(hashtagTopic, hashtagVisuals, niche, goal, mood, region);
       setResult(data || 'Keine Tags gefunden.');
     } catch (err: any) {
-      console.error(err);
-      setResult(`Fehler: ${err?.message || 'Hashtag-Generierung fehlgeschlagen.'}`);
+      setResult(formatErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -192,7 +197,7 @@ const App: React.FC = () => {
   };
 
   const parseScanResult = (text: string) => {
-    if (text.startsWith('Fehler:')) return null;
+    if (text.includes('FEHLER') || text.includes('KI-LIMIT')) return null;
     return {
       code: getField(text, 'VIRAL-CODE'),
       score: getField(text, 'SCORE').replace('%', ''),
@@ -205,7 +210,7 @@ const App: React.FC = () => {
   };
 
   const parseIdeas = (text: string) => {
-    if (text.startsWith('Fehler:')) return [];
+    if (text.includes('FEHLER') || text.includes('KI-LIMIT')) return [];
     const blocks = text.split(/## IDEA \d/i).filter(b => b.trim().length > 10);
     return blocks.map(block => ({
       code: getField(block, 'VIRAL-CODE'),
@@ -358,9 +363,10 @@ const App: React.FC = () => {
                   </>
                 ) : (
                   <div className="glass-panel p-8 rounded-3xl border-red-500/20 text-center">
-                    <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-3" />
-                    <p className="text-sm font-bold text-red-400">{result}</p>
-                    <p className="text-[10px] text-white/20 mt-2">Prüfe deinen API_KEY in den Vercel Settings.</p>
+                    <AlertCircle className="w-8 h-8 text-[#FE2C55] mx-auto mb-3" />
+                    <p className="text-xs font-black uppercase tracking-widest text-[#FE2C55] mb-2">Matrix Interrupt</p>
+                    <p className="text-[13px] font-bold text-white/80 leading-relaxed">{result}</p>
+                    <button onClick={() => setResult(null)} className="mt-6 px-6 py-2 rounded-full border border-white/10 text-[10px] font-black uppercase tracking-widest hover:bg-white/5">Erneut versuchen</button>
                   </div>
                 )
               )}
@@ -403,8 +409,9 @@ const App: React.FC = () => {
                   </>
                 ) : (
                   <div className="glass-panel p-8 rounded-3xl border-red-500/20 text-center">
-                    <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-3" />
-                    <p className="text-sm font-bold text-red-400">{result}</p>
+                    <AlertCircle className="w-8 h-8 text-[#FE2C55] mx-auto mb-3" />
+                    <p className="text-[13px] font-bold text-white/80">{result}</p>
+                    <button onClick={() => setResult(null)} className="mt-6 px-6 py-2 rounded-full border border-white/10 text-[10px] font-black uppercase tracking-widest hover:bg-white/5">Erneut versuchen</button>
                   </div>
                 )
               )}
@@ -416,13 +423,16 @@ const App: React.FC = () => {
                     <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Booster Tag Matrix</p>
                   </div>
                   <div className="grid grid-cols-1 gap-3">
-                    {result?.startsWith('Fehler:') ? (
-                      <p className="text-red-400 text-xs text-center font-bold">{result}</p>
+                    {result?.includes('LIMIT') || result?.includes('FEHLER') ? (
+                      <div className="text-center py-4">
+                        <AlertCircle className="w-6 h-6 text-[#FE2C55] mx-auto mb-2" />
+                        <p className="text-white/80 text-[11px] font-bold leading-relaxed">{result}</p>
+                        <button onClick={() => setResult(null)} className="mt-4 text-[10px] font-black uppercase text-[#25F4EE]">Zurück</button>
+                      </div>
                     ) : (
                       (() => {
                         const tags = result?.match(/#[\w\d]+/g) || [];
                         if (tags.length === 0 && result) {
-                          // Debug-Anzeige, falls die KI Text schickt, aber keine Hashtags erkennt
                           return (
                             <div className="space-y-4">
                               <p className="text-white/40 text-[10px] text-center italic">Keine Hashtags erkannt. Roh-Antwort:</p>

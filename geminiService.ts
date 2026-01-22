@@ -1,26 +1,35 @@
 
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 
-const SYSTEM_INSTRUCTION = `Du bist TIKTOK VIRAL STRATEGIST 2026 (v 1.0).
-Deine Aufgabe ist es, Creator dabei zu unterstützen, maximale Reichweite zu erzielen.
-Erstelle originelle, kreative und algorithmus-optimierte Inhalte basierend auf den Eingaben.
-
-WICHTIG: Halte dich exakt an das vorgegebene Antwort-Schema. Verwende keine zusätzliche Markdown-Formatierung wie fettgedruckte Labels, außer es ist im Schema so vorgesehen.`;
+const SYSTEM_INSTRUCTION = `Du bist TIKTOK VIRAL STRATEGIST 2026 (v 1.0). 
+Fokus: Maximale Virality für Creator (0-500k Follower).
+WICHTIG: Antworte kurz, präzise und strikt im Schema. Keine Prosa.`;
 
 export class GeminiService {
   private getAI() {
+    // Erstellt jedes Mal eine neue Instanz, um sicherzustellen, dass der aktuellste API_KEY verwendet wird.
     return new GoogleGenAI({ apiKey: process.env.API_KEY });
+  }
+
+  private async callWithRetry(fn: () => Promise<any>, retries = 2, delay = 2000): Promise<any> {
+    try {
+      return await fn();
+    } catch (error: any) {
+      if (retries > 0 && (error.message?.includes('429') || error.status === 429)) {
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return this.callWithRetry(fn, retries - 1, delay * 2);
+      }
+      throw error;
+    }
   }
 
   async analyzeVideo(niche: string, region: string, goal: string, mood: string, videoBase64?: string) {
     const ai = this.getAI();
-    const prompt = `Führe einen VIRAL-SCAN durch. 
-    Kontext: Nische=${niche}, Ziel=${goal}, Stimmung=${mood}, Region=${region}.
-    
-    ANTWORTE STRIKT IN DIESEM FORMAT:
+    const prompt = `VIRAL-SCAN: Nische=${niche}, Ziel=${goal}, Stimmung=${mood}, Region=${region}.
+    ANTWORTE STRIKT:
     VIRAL-CODE: [CODE]
     SCORE: [XX]%
-    INHALT: [KI-ANALYSE]
+    INHALT: [ANALYSE]
     VIDEO-TEXT: 📋 [TEXT]
     CAPTION: 📋 [TEXT]
     HASHTAGS: 📋 [#tag1 #tag2]
@@ -31,59 +40,49 @@ export class GeminiService {
         { text: prompt },
         { inlineData: { mimeType: "video/mp4", data: videoBase64 } }
       ]
-    } : prompt;
+    } : { parts: [{ text: prompt }] };
 
-    const response = await ai.models.generateContent({
+    const result = await this.callWithRetry(() => ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: contents,
       config: { systemInstruction: SYSTEM_INSTRUCTION }
-    });
+    }));
 
-    return response.text;
+    return result.text;
   }
 
   async generateIdeas(category: string, niche: string, region: string, goal: string, mood: string) {
     const ai = this.getAI();
-    const prompt = `Erstelle 3 hoch-virale Ideen für: ${category}.
-    Parameter: Nische=${niche}, Ziel=${goal}, Stimmung=${mood}, Region=${region}.
-    
-    FORMAT PRO IDEE:
-    ## IDEA 1
+    const prompt = `3 Virale Ideen für: ${category}. Nische=${niche}, Ziel=${goal}.
+    SCHEMA PRO IDEE:
+    ## IDEA [X]
     VIRAL-CODE: [CODE]
     SCORE: [XX]%
-    VIDEO-TEXT: 📋 [OVERLAY TEXT]
-    CAPTIONS: 📋 [CAPTIONS TEXT]
+    VIDEO-TEXT: 📋 [OVERLAY]
+    CAPTIONS: 📋 [TEXT]
     HASHTAGS: 📋 [#tag1 #tag2]
-    POST-ZEIT: [HH:MM]
-    
-    ## IDEA 2
-    ... (selbes Schema)
-    ## IDEA 3
-    ... (selbes Schema)`;
+    POST-ZEIT: [HH:MM]`;
 
-    const response = await ai.models.generateContent({
+    const result = await this.callWithRetry(() => ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt,
       config: { systemInstruction: SYSTEM_INSTRUCTION }
-    });
+    }));
 
-    return response.text;
+    return result.text;
   }
 
   async generateHashtags(topic: string, visuals: string, niche: string, goal: string, mood: string, region: string) {
     const ai = this.getAI();
-    const prompt = `Generiere 6 TikTok Hashtags für Thema: ${topic}.
-    Visuals: ${visuals}, Nische: ${niche}, Stimmung: ${mood}.
+    const prompt = `6 TikTok Tags für: ${topic}. Visuals: ${visuals}, Nische: ${niche}.
+    FORMAT: [TYPE] 📋 #tag`;
 
-    FORMAT:
-    1. [TYPE] 📋 #tag`;
-
-    const response = await ai.models.generateContent({
+    const result = await this.callWithRetry(() => ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt,
       config: { systemInstruction: SYSTEM_INSTRUCTION }
-    });
+    }));
 
-    return response.text;
+    return result.text;
   }
 }
